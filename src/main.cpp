@@ -102,11 +102,13 @@ int main() {
   // state: 0: keep lane, 1: change left lane, 2: change right lane
   int state = 0;
 
+  //const double SPEED_LIMIT = 49.5; //mph
+
   const double SPEED_LIMIT = 49.5; //mph
 
 
 
-  h.onMessage([&lane, &ref_vel, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
+  h.onMessage([&SPEED_LIMIT, &lane, &ref_vel, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
                &map_waypoints_dx,&map_waypoints_dy]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
@@ -260,47 +262,53 @@ int main() {
           }// for sensor fusion
 
           double max_cost = std::numeric_limits<double>::max();
+          const double DIST_LIMIT_FRONT = 30;
+          const double DIST_LIMIT_SIDE_FRONT = 10;
+          const double DIST_LIMIT_SIDE_BACK = 20;
+
           // cost for keeping lane
           double cost_keeping_lane = 0;
-          const double DIST_LIMIT_FRONT = 20;
-          const double DIST_LIMIT_SIDE_FRONT = 20;
-          const double DIST_LIMIT_SIDE_BACK = 20;
           bool close = false;
+          double min_speed = SPEED_LIMIT;
           if (front_car[5] < DIST_LIMIT_FRONT) {
             close = true;
-            cost_keeping_lane = 100;
+            min_speed = mps2mph(front_car[4]);
+
+            cost_keeping_lane = 1 / front_car[5]; // + std::abs(min_speed - SPEED_LIMIT) * 0.01; 
           }
           // cost for changing to left lane
           double cost_change_left_lane=0;
           if (our_lane > 0) {
-            if (left_front_car[5] < DIST_LIMIT_SIDE_FRONT || left_back_car[5] < DIST_LIMIT_SIDE_BACK) {
-              cost_change_left_lane = 200;
-            } 
+            //if (left_front_car[5] < DIST_LIMIT_SIDE_FRONT || left_back_car[5] < DIST_LIMIT_SIDE_BACK) {
+            cost_change_left_lane = 0.7 / left_front_car[5] + 0.3 / left_back_car[5] + 0.005; // + 1 / std::abs(left_front_car[4] - min_speed);
           } else {
             cost_change_left_lane = max_cost;
           }
           // cost for changing to right lane
           double cost_change_right_lane = 0;
           if (our_lane < 2) {
-            if (right_front_car[5] < DIST_LIMIT_SIDE_FRONT || right_back_car[5] < DIST_LIMIT_SIDE_BACK) {
-              cost_change_right_lane = 200;
-            } 
+            cost_change_right_lane = 0.7 / right_front_car[5] + 0.3 / right_back_car[5] + 0.005; // + 1 / std::abs(right_front_car[4] - min_speed);
           } else {
             cost_change_right_lane = max_cost;
           }
           // 0 -> keep lane, 1 -> change left lane, 2 -> change right lane
           int decision = min_cost_index(cost_keeping_lane, cost_change_left_lane, cost_change_right_lane);
-          double acc = 0.4;
+          std::cout << "decision: " << decision << std::endl;
+          std::cout << "cost_keeping_lane: " << cost_keeping_lane << std::endl;
+          std::cout << "cost_change_left_lane: " << cost_change_left_lane << std::endl;
+          std::cout << "cost_change_right_lane: " << cost_change_right_lane << std::endl;
+          std::cout << "\n";
+          double acc = 0.5;
           if (decision == 1) {
             lane = our_lane - 1;
           }
           if (decision == 2) {
             lane = our_lane + 1;
           }
-          if (decision == 0 && close) {
+          if (close && ref_vel > min_speed) {
             ref_vel -= acc;
           }
-          else if (ref_vel < 49.5) {
+          else if (ref_vel < SPEED_LIMIT) {
             ref_vel += acc;
           }
 
