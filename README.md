@@ -143,3 +143,52 @@ still be compilable with cmake and make./
 ## How to write a README
 A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
 
+## Generate Paths
+
+### Predictions 
+
+  I use five cars from sensor fusion (if available): *front car*, *left front car*, *left back car*, *right front car* and *right back car*. Instead of predictions the future states of the cars, the current distances to our car are calculated and based on that the cost function for each state are computed.
+
+### Cost funstion
+
+  There three state in my implementation: *keep lane*, *change left lane* and *change right lane*.
+  And the strategy is easy, the car will run as fast as it can (unter speed limit and max jerk). If there is a slow car in front of our car, it will try to make a lane change if possible. 
+
+  I take the inverse of the distance as cost for each state. And for lane changing I make the weights for front car more important. 
+  ``` cpp
+  // cost for keeping lane
+  double cost_keeping_lane = 0;
+  bool close = false;
+  double min_speed = SPEED_LIMIT;
+  if (front_car[5] < DIST_LIMIT_FRONT) {
+    close = true;
+    min_speed = mps2mph(front_car[4]);
+
+    cost_keeping_lane = 1 / front_car[5]; 
+  }
+  // cost for changing to left lane
+  double cost_change_left_lane=0;
+  if (our_lane > 0) {
+    cost_change_left_lane = 0.7 / left_front_car[5] + 0.3 / left_back_car[5] + 0.005; 
+  } else {
+    cost_change_left_lane = max_cost;
+  }
+  // cost for changing to right lane
+  double cost_change_right_lane = 0;
+  if (our_lane < 2) {
+    cost_change_right_lane = 0.7 / right_front_car[5] + 0.3 / right_back_car[5] + 0.005; 
+  } else {
+    cost_change_right_lane = max_cost;
+  }
+  ```
+
+  The car is very sensitive to the cost function. I also tried other more complex cost functions, but they didn't work better than the above ones.
+
+### Path generation
+
+Paths are generated based on current speed and decisions. As suggested, I used the spline library to interpolate and get a smooth path.
+
+### Thoughts
+
+This part of course took me much time to learn. But it seems the project is kind of irrelavant to the course. I found the implementation is a little bit naive and not practical. Maybe later on I will manage to make a more robust implementation.
+
